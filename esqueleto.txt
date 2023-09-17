@@ -1,0 +1,48 @@
+#include<iostream>
+#include "TSystem.h"
+#include "TStyle.h"
+#include "TChain.h"
+#include "TTree.h"
+#include "TH1.h"
+#include "TCanvas.h"
+
+using namespace std;
+
+void Esqueleto(){
+
+  //Style issues
+  gStyle->SetPalette(1);
+
+  //Setup the chain of TTrees
+  TChain *chain = new TChain("/Event/Rec/AdSimple");
+  chain->Add("/global/project/projectdirs/dayabay/data/exp/dayabay/2013/p15a/Neutrino/0420/recon.Neutrino.0038595.Physics.EH1-Merged.P15A-P._0001.root");
+  chain->SetMakeClass(1);
+  
+  //Activating only a subset of branches (for speed)
+  chain->SetBranchStatus("*",0);
+  //-->setting individual branches
+  Int_t detector;
+  chain->SetBranchStatus("detector",kTRUE);
+  chain->SetBranchAddress("detector",&detector);
+  float energy,xreco,yreco,zreco;  
+  chain->SetBranchStatus("energy",kTRUE);
+  chain->SetBranchAddress("energy",&energy);
+  chain->SetBranchStatus("position",kTRUE);
+  chain->SetBranchAddress("x",&xreco);
+  chain->SetBranchAddress("y",&yreco);
+  chain->SetBranchAddress("z",&zreco);
+
+  //Looping over entries in chain 
+  Int_t nentries=chain->GetEntries();
+  cout << "Total number of entries " << nentries << endl;//tmp
+ 
+  for(int ientry=0;ientry<nentries;ientry+=1) {
+
+    //load this entry 
+    chain->GetEntry(ientry);
+    
+    cout << "This event is from detector " << detector << " and has energy " << energy << endl;
+    
+  }
+
+}//Esqueleto.C
