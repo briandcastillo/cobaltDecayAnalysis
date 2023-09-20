@@ -1,0 +1,209 @@
+#include <iostream>
+#include "TSystem.h"
+#include "TStyle.h"
+#include "TChain.h"
+#include "TTree.h"
+#include "TH1F.h"
+#include "TF1.h"
+#include "TCanvas.h"
+#include "TFile.h"
+#include "math.h"
+#include <vector>
+using namespace std;
+
+void cleanplot() {
+
+  gStyle->SetPalette(1);
+
+  //A chain of trees
+  TChain *chain = new TChain("/Event/Rec/AdSimpleNL");
+  chain->Add("/global/projecta/projectdirs/dayabay/data/dropbox/p17b/lz1/recon.NoTag.0035532.ADCalib.EH1-Merged.P17B-P._0001.root"); //Co60 data
+  //chain->Add("");
+  chain->SetMakeClass(1); //Taking just the primitive data
+  chain->SetBranchStatus("*",0); //Deactivates all branches in the tree
+  TChain *chain2 = new TChain("/Event/Rec/AdSimpleNL");
+  chain2->Add("/global/projecta/projectdirs/dayabay/data/dropbox/p17b/lz2.skim.4/recon.Neutrino.0035606.Physics.EH1-Merged.P17B-P._0001.root"); //Background
+  //chain2->Add("/global/projecta/projectdirs/dayabay/data/dropbox/p17b/lz1.skim.7/recon.Neutrino.0035606.Physics.EH1-Merged.P17B-P._0002.root");
+  //chain2->Add("/global/projecta/projectdirs/dayabay/data/dropbox/p17b/lz2.skim.5/recon.Neutrino.0035606.Physics.EH1-Merged.P17B-P._0003.root");
+  //chain2->Add("/global/projecta/projectdirs/dayabay/data/dropbox/p17b/lz3.skim.5/recon.Neutrino.0035606.Physics.EH1-Merged.P17B-P._0004.root");
+  chain2->SetMakeClass(1);
+  chain2->SetBranchStatus("*",0);
+
+
+//A chain of trees for the charge position data
+  TChain *chain3 = new TChain("/Event/CalibReadout/CalibReadoutHeader");
+  chain3->Add("");
+  chain3->SetMakeClass(1); //Taking just the primitive data
+  chain3->SetBranchStatus("*",0); //Deactivates all branches in the tree
+  TChain *chain4 = new TChain("/Event/CalibReadout/CalibReadoutHeader");
+  chain4->Add("");
+  chain4->Add("");
+  chain4->Add("");
+  chain4->Add("");
+  chain4->SetMakeClass(1);
+  chain4->SetBranchStatus("*",0);
+
+
+
+  //Setting only the branches I need
+  Int_t tsec, tsec2;
+  chain->SetBranchStatus("triggerTimeSec",kTRUE);         
+  chain->SetBranchAddress("triggerTimeSec",&tsec);
+  chain2->SetBranchStatus("triggerTimeSec",kTRUE);         
+  chain2->SetBranchAddress("triggerTimeSec",&tsec2);
+  float energy, energy2, tnano, tnano2, charge, charge2;
+  chain->SetBranchStatus("energy",kTRUE);
+  chain->SetBranchAddress("energy",&energy);
+  chain->SetBranchStatus("triggerTimeNanoSec",kTRUE);
+  chain->SetBranchAddress("triggerTimeNanoSec",&tnano);  
+  chain2->SetBranchStatus("energy",kTRUE);
+  chain2->SetBranchAddress("energy",&energy2);
+  chain2->SetBranchStatus("triggerTimeNanoSec",kTRUE);
+  chain2->SetBranchAddress("triggerTimeNanoSec",&tnano2);
+  chain3->SetBranchStatus("chargeAD", kTRUE);
+  chain3->SetBranchAddress("chargeAD",&charge);
+  chain4->SetBranchStatus("chargeAD", kTRUE);
+  chain4->SetBranchAddress("chargeAD",&charge2);
+
+  //Total entries
+  Int_t nentries = chain->GetEntries();
+  Int_t nentries2 = chain2->GetEntries();
+  Int_t nentries3 = chain3->GetEntries();
+  Int_t nentries4 = chain4->GetEntries();
+
+
+  TH1F *hist1 = new TH1F("hist1", "Energy; Energy (MeV); Entries", 100, 0, 5); //Co60 Histogram
+  TH1F *hist2 = new TH1F("hist2", "Energy; Energy (MeV); Entries", 100, 0, 5); //Background Histogram
+  TH1F *carga1 = new TH1F("carga1", "Charge; Position; Entries;", 100, -60, 5000); //Charge Histogram
+  TH1F *carga2 = new TH1F("carga2", "Charge; Position; Entries;", 100, -60, 5000); //Charge Histogram
+
+  //Vectors containing time
+  vector<Int_t> timesec;
+  vector<float> timenano;
+  vector<Int_t> timesec2;
+  vector<float> timenano2;
+  float gap = 0;
+  
+  //looping through entries
+  for (int i = 0; i < nentries; i++) {
+    chain->GetEntry(i); //Reads entries from all selected branches
+    timesec.push_back(tsec);
+    timenano.push_back(tnano);
+    if (energy !=0) {
+    hist1->Fill(energy);
+    }
+  }
+  for (int j = 0; j < nentries2; j++) {
+    chain2->GetEntry(j); //Reads entries from all selected branches
+    timesec2.push_back(tsec2); //stored as unix time
+    timenano2.push_back(tnano2); //stored as unix time
+    if (energy2 !=0) {
+      hist2->Fill(energy2);
+    }
+  }
+  for (int k=0; k < nentries2-1; k++) { //I had to make a new for loop bc if I had it in the one above then it would be subtracting 0 - the first entry and always yeilding a negative number
+    float timebetweenevents = (timesec2[k+1] - timesec2[k]) + 1e-9*(timenano2[k+1] - timenano2[k]); 
+    if (timebetweenevents > 1) { //this should only include the gap that is significant between file 2 and 5
+    gap += timebetweenevents;
+    }
+  }
+
+  for (int p=0; p < nentries3; p++) {
+    chain3->GetEntry(p);
+    carga1->Fill(charge);
+  }
+  for (int q=0; q < nentries4; q++) {
+    chain4->GetEntry(q);
+    carga2->Fill(charge2);
+  }pro
+ 
+  //Runtime Variables
+  float runtimeCo = timesec.back() - timesec.front() + 1e-9*(timenano.back() - timenano.front());
+  float runtimeBack = timesec2.back() - timesec2.front() + 1e-9*(timenano2.back() - timenano2.front());
+  float realtimeBack = runtimeBack - gap;
+  cout << "-Total runtime for Co60 calbi: " << runtimeCo << " seconds " << endl;
+  cout << "-Total runtime for Background run: " << runtimeBack << " seconds" << endl;
+  cout << "-Size of the gaps: " << gap << endl;
+  cout << "-Real runtime for background: " << realtimeBack << " seconds" << endl;
+
+  //Fitting 
+  TF1 *g1 = new TF1("g1","gaus", 2.1, 3);
+  g1->SetLineColor(1);
+  TF1 *g2 = new TF1("g2","gaus", 1, 1.95);
+  g2->SetLineColor(1);
+  //Adding my two gaussians 
+  TF1 *total = new TF1("total","gaus(0) + gaus(3)", 1, 3);
+
+  //File for the isolated cobalt plot
+  TFile *f = new TFile("h1.root", "recreate"); //**********************
+  TFile *f2 = new TFile("charge1.root","recreate"); //*************
+  
+  float scale = runtimeCo/realtimeBack;    
+  TCanvas *c1 = new TCanvas("c1", "Analysis", 1500,650);   //it is important to note that once something is scaled it will always be scaled
+  c1->Divide(2,1);                                     // i have to make sure i clone it before applying things so that it remains the same
+    c1->cd(1);
+    TH1F *hist4 = (TH1F*)hist2->Clone("hist4");
+    TH1F *hist3 = (TH1F*)hist1->Clone("hist3");
+      hist2->Scale(scale);
+      hist2->Draw();
+      hist2->SetLineColor(2);
+      hist1->Draw("same");
+      
+     c1->cd(2);
+       hist4->Scale(scale);
+       hist3->Add(hist4,-1);
+       TH1F *h1 = (TH1F*)hist3->Clone("h1");  //********************* change h number
+       hist3->Fit("g1", "RQ");
+       hist3->Fit("g2", "RQ+");
+       //Getting the parameters from the gaussians
+       g1->GetParameters(&par[0]);
+       g2->GetParameters(&par[3]);
+       //Now using the parameters on the total gaus
+       total->SetParameters(par);
+       hist3->Fit(total, "RQ+");
+       hist3->Draw();	    
+       //Creating a histogram of just the subtracted plot to create a timeline
+       TCanvas *c2 = new TCanvas("c2", "Decay Evolution");
+       c2->cd(1);
+       h1->Draw();        //******************
+       h1->Write();      //************************
+       hist3->Write();
+
+  //This bool allows me to change individual points
+  float integral = total->Integral(2,3); //Range of the integral
+  UInt_t time = timesec2[0];
+  if (gSystem->AccessPathName("tree1.root")) { //If the file has not been created then it shall be *******************
+    cout << "Creating root file \n";
+    //Creating the file to store the tree which stores the integrals
+    TFile *file = new TFile("tree1.root", "recreate"); //this file will contain the tree which contains the integral *******************
+    TTree *tree = new TTree("tree", "a tiny tree");
+    tree->Branch("integrals", &integral, "integral/F");   
+    tree->Branch("time", &time, "time/i");
+    tree->Fill();    
+    file->Write();
+    file->Close();
+    cout << "Done.\n";
+   } else {                                          //else, updating the tree by creating a new one and adding the new values to it.
+      cout << "Updating tree... " << endl;  
+      TFile *file = new TFile("tree1.root", "recreate");  //***********
+      TTree *tree = new TTree("tree", "a tiny tree");
+      tree->Branch("integrals", &integral, "integral/F");   
+      tree->Branch("time", &time, "time/i");
+      tree->Fill();    
+      file->Write();
+      file->Close();
+      cout << "Tree Updated.\n";
+   }
+           //the more i stare at the bool, i think to myself that perhaps it could be not a bool and just be one, the only cool part is that in the terminal it will say file updated.
+  
+  
+  cout << "-Integral for the Co60 plot: " << hist1->Integral() << endl;
+  cout << "-Integral for the Background plot: " << hist2->Integral() << endl;
+  cout << "-Integral for the subtracted plot (bins 30-60): " << hist3->Integral(30,60) << endl;
+  cout << "-Integral for the subtracted plot (using the fit from 2-3): " << total->Integral(2,3) << endl;
+
+
+
+}
+  
+  
