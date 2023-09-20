@@ -15,7 +15,7 @@ void Esqueleto(){
 
   //Setup the chain of TTrees
   TChain *chain = new TChain("/Event/Rec/AdSimple");
-  chain->Add("/global/project/projectdirs/dayabay/data/exp/dayabay/2013/p15a/Neutrino/0420/recon.Neutrino.0038595.Physics.EH1-Merged.P15A-P._0001.root");
+  chain->Add("file");
   chain->SetMakeClass(1);
   
   //Activating only a subset of branches (for speed)
