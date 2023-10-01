@@ -1,0 +1,112 @@
+#include<iostream>
+#include "TFile.h"
+#include "TH1.h"
+#include "TCanvas.h"
+#include <fstream>
+using namespace std;
+
+void subtractor() {
+  for (int b=0;b<17;b++) {
+  cout << "Subtraction Macro" << endl;
+  cout << "================================Begin=========================================" << endl;
+  cout << "Loading Histograms from files..." << endl;
+  //Defining the variable that will be used in the file name
+  int file_number = b+1;
+  // File names so that they may be looped through
+  string calibfile = "rawCalibEC" + std::to_string(file_number) + ".root"; 
+  string physicsfile = "rawphysicsEC" + std::to_string(file_number) + ".root";
+  
+  // Open the two files containing the histograms
+  TFile *calibFile = new TFile(calibfile.c_str());
+  TFile *physicsFile = new TFile(physicsfile.c_str());
+
+  // Get the histograms from the files
+  TH1F *calibEnergyHist = (TH1F*)calibFile->Get("Energy");
+  TH1F *physicsEnergyHist = (TH1F*)physicsFile->Get("Energy");
+  TH1F *calibChargeHist = (TH1F*)calibFile->Get("Charge");
+  TH1F *physicsChargeHist = (TH1F*)physicsFile->Get("Charge");
+  cout << "Histograms loaded sucessfully" << endl;
+  
+  //Loading the scaling text files so that I may subtract accordingly
+  //std::ifstream *ct = new ifstream("calibTimes.txt");
+  std::ifstream *pt = new ifstream("physicsTimes.txt");
+ 
+  //Get experient start times 
+  std::ifstream ct;
+  ct.open("calibTimes.txt");
+  vector<Int_t> timeArray;
+  // Read the values from the file
+  Int_t calibTime;
+  Int_t expStart; 
+  while (ct >> calibTime >> expStart) {
+    timeArray.push_back(calibTime);
+  }
+  const int N = 16;
+  Float_t *physicsTimes = new Float_t[N];
+  Float_t time2;
+  int count2 = 0;
+  while (pt->operator >> (time2)) {
+    physicsTimes[count2] = time2;
+    count2++;
+  }
+  // Close the file
+  pt->close();
+  // Print the values
+  //for (int i = 0; i < count; i++) {
+  //cout << calibTimes[i] << " and "  << physicsTimes[i] << endl;
+  //}
+
+  //Create the scaling variable
+  Float_t scale = timeArray[b]/physicsTimes[b];
+  cout << "Time Scale: " << timeArray[b] << "min/" << physicsTimes[b] << "min = " << scale << endl;
+  
+  // Using string concatenation to combine the variable with a string
+  std::string histogramName = "subHistogram" + std::to_string(file_number) + ".root";
+  // Create a new ROOT file with the generated file name
+  TFile *file = new TFile(histogramName.c_str(), "RECREATE");
+    
+  // Drawing the subtracted histogram
+  TCanvas *c1 = new TCanvas("c1", "Scaled Histograms", 1500,650);
+  c1->Divide(2,1);
+  c1->cd(1);
+  TH1F *calibEnergyClone = (TH1F*)calibEnergyHist->Clone("calibEnergyClone");
+  TH1F *physicsEnergyClone = (TH1F*)physicsEnergyHist->Clone("physicsEnergyClone");
+  physicsEnergyHist->Scale(scale);
+  physicsEnergyHist->Draw();
+  physicsEnergyHist->SetLineColor(2);
+  calibEnergyHist->Draw("same");
+  calibEnergyHist->Write();
+
+  c1->cd(2);
+  TH1F *calibChargeClone = (TH1F*)calibChargeHist->Clone("calibChargeClone");
+  TH1F *physicsChargeClone = (TH1F*)physicsChargeHist->Clone("physicsChargeClone");
+  physicsChargeHist->Scale(scale);
+  physicsChargeHist->Draw();
+  physicsChargeHist->SetLineColor(2);
+  calibChargeHist->Draw("same");
+  calibChargeHist->Write();
+  //===========================================================================
+  TCanvas *c2 = new TCanvas("c2", "Scaled & Subtracted Histograms", 1500,650);
+  c2->Divide(2,1);
+  c2->cd(1);
+  physicsEnergyClone->Scale(scale);
+  calibEnergyClone->Add(physicsEnergyClone,-1);
+  calibEnergyClone->Draw();
+  calibEnergyClone->Write();
+  
+  c2->cd(2);
+  physicsChargeClone->Scale(scale);
+  calibChargeClone->Add(physicsChargeClone,-1);
+  calibChargeClone->Draw("hist");
+  calibChargeClone->Write();
+
+  file->Close();
+  
+  //freeing the memory
+  //delete ct;
+  //delete[] calibTimes;
+  delete pt;
+  delete[] physicsTimes;
+  cout << "=================================End==========================================" << endl;
+}
+}
