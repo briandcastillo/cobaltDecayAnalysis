@@ -1,0 +1,173 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include "TSystem.h"
+#include "TStyle.h"
+#include "TChain.h"
+#include "TTree.h"
+#include "TH1.h"
+#include "TF1.h"
+#include "TCanvas.h"
+#include "TFile.h"
+#include "TImage.h"
+#include "TPad.h"
+
+using namespace std;
+
+void fitting() {
+  
+  TFile *treeFile = new TFile("dataTree.root", "recreate"); 
+  TTree *tree = new TTree("tree", "a tiny tree");
+  for (int b=0;b<=16;b++) {
+  cout << "=================================Begin=======================================" << endl;
+  //int b=6;
+  int file_number = b+1;
+  // First load up the histograms for fitting
+  string fileName = "subHistogram" + std::to_string(file_number) + ".root";
+  TFile *file = new TFile(fileName.c_str());
+  
+  // Retrieve the histgrams
+  TH1F *fittedEnergy = (TH1F*)file->Get("calibEnergyClone");
+  TH1F *fittedCharge = (TH1F*)file->Get("calibChargeClone");
+
+  // Creating the double gaussian fit to both histograms
+  // Create a double Gaussian function with two Gaussian functions
+  // gaus1(x) = N1*exp(-0.5*((x-mean1)/sigma1)^2)
+  // gaus2(x) = N2*exp(-0.5*((x-mean2)/sigma2)^2)
+  // f(x) = gaus1(x) + gaus2(x)
+  // Set the initial values for the parameters (N1, mean1, sigma1, N2, mean2, sigma2)
+  TF1* f1 = new TF1("f1", "[0]*exp(-0.5*((x-[1])/[2])^2)+[3]*exp(-0.5*((x-[4])/[5])^2)", 1.3, 3);
+  f1->SetParameters(250, 1.5, 0.4467, 2500, 2.4, 0.4467);
+  TF1* f2 = new TF1("f2", "[0]*exp(-0.5*((x-[1])/[2])^2)", 340, 460);
+  f2->SetParameters(1100, 400, 72.46);
+
+  //Errors on the integral values
+  double integralError[17];
+  double integralErrorEnergy;
+  
+
+
+  // Fixing Parameters
+  if (b==7) {
+    f1->FixParameter(0,180);
+    f1->FixParameter(1,1.7);
+    f1->FixParameter(2,0.266);
+    }
+  if (b==8) {
+    f1->FixParameter(0,200);
+    f1->FixParameter(1,1.6);
+    f1->FixParameter(2,0.3);
+    }
+  if (b==13) { //this is actually file 14 since zero index
+    f1->FixParameter(0,100);
+    f1->FixParameter(1,1.6);
+    f1->FixParameter(2,0.4);
+    f1->FixParameter(3,950);
+    f1->FixParameter(4,2.4);
+    f1->FixParameter(5,0.15);
+    }
+  if (b==14) { 
+    f1->FixParameter(0,150);
+    f1->FixParameter(1,1.6);
+    f1->FixParameter(2,0.3);
+    f1->FixParameter(3,1000);
+    f1->FixParameter(4,2.4);
+    f1->FixParameter(5,0.15);
+    }
+  if (b==15) { 
+    f1->FixParameter(0,100);
+    f1->FixParameter(1,1.6);
+    f1->FixParameter(2,0.3);
+    f1->FixParameter(3,850);
+    f1->FixParameter(4,2.4);
+    f1->FixParameter(5,0.15);
+     }
+  if (b==16) { 
+    f1->FixParameter(0,100);
+    f1->FixParameter(1,1.6);
+    f1->FixParameter(2,0.3);
+    f1->FixParameter(3,975);
+    f1->FixParameter(4,2.4);
+    f1->FixParameter(5,0.15);
+    }
+  
+  // Using string concatenation to combine the variable with a string
+  string histogramName = "fittedHistograms" + to_string(file_number) + ".root";
+  // Create a new ROOT file with the generated file name
+  TFile *fitFile = new TFile(histogramName.c_str(), "RECREATE");
+  
+  // Drawing them to check
+  TCanvas *c1 = new TCanvas("c1","test", 1500, 650);
+  c1->Divide(2,1);
+  c1->cd(1);
+  fittedEnergy->Fit(f1, "RM");
+  fittedEnergy->Draw();
+  fittedEnergy->Write();
+  c1->cd(2);
+  fittedCharge->Fit(f2, "RM");
+  fittedCharge->Draw();
+  fittedCharge->Write();
+  
+  fitFile->Close();
+
+  //Saving the histograms as a png file and into subdirectories
+  //string pic = "/global/homes/b/bcasti/realco_analysis/1point5to3/energyW" + to_string(file_number) + ".png";
+  //TPad *pad1 = (TPad*)c1->GetPad(1);
+  //TImage *img = TImage::Create();
+  //img->FromPad(pad1);
+  //img->WriteImage(pic.c_str());
+  
+
+  //Store the values of the gaussians
+  Float_t integral = f1->Integral(1.3,3); ***
+  integralErrorEnergy = f1->IntegralError(1.3,3); ***
+  integralError[b] = integralErrorEnergy; ***
+  Float_t maxEnergyX = f1->GetMaximumX(); //To see if it really is constant
+  Float_t maxCharge = f2->GetMaximum(); //Should decrease over time
+  Float_t maxChargeX = f2->GetMaximumX();
+  // Calculate the chi-squared value of the fit
+  Float_t chisq = f1->GetChisquare();
+  //Calculate the goodness of fit probability
+  Float_t prob = f1->GetProb();
+  //Print the results
+  cout << "* Chi-squared: " << chisq << endl;
+  cout << "* Goodness of fit probability: " << prob << endl;
+  cout << "* Integral of the Energy Hist in the range 1-3: " << integral << endl;
+  cout << "* X Position of the max value for the Energy hist: " << maxEnergyX << endl;
+  cout << "* Max value of the charge hist: " << maxCharge << endl;
+  cout << "* X Position of the max value for the Charge hist: " << maxChargeX << endl;
+
+  //Get experient start times 
+  std::ifstream ct;
+  ct.open("calibTimes.txt");
+  vector<Int_t> timeArray;
+  // Read the values from the file
+  Int_t calibTime;
+  Int_t expStart; 
+  while (ct >> calibTime >> expStart) {
+    timeArray.push_back(expStart);
+  }
+  ct.close();
+  Int_t time = timeArray[b]; 
+  cout << "expStart: " << time << endl; 
+  //Store these values to be analyized later
+    tree->Branch("integral", &integral, "integral/F");
+    tree->Branch("maxEnergyX", &maxEnergyX, "maxEnergyX/F");
+    tree->Branch("maxCharge", &maxCharge, "maxCharge/F");
+    tree->Branch("maxChargeX", &maxChargeX, "maxChargeX/F");
+    tree->Branch("time", &time, "time/i");
+    tree->Branch("integralEnergy",&integral,"integralEnergy/D");
+    tree->Branch("integralEnergyError",&integralErrorEnergy,"integralEnergyError/D");
+    tree->Fill();    
+    
+   
+  delete c1;
+  delete f1;
+  delete f2;
+  cout << "==================================End=========================================" << endl;
+  }
+  treeFile->Write();
+  treeFile->Close();
+  
+}
