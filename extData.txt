@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void moreData(const char* inputFileName) {
+    FILE *inputFile = fopen(inputFileName, "r");
+    if (!inputFile) {
+        printf("Error: Unable to open input file\n");
+        return;
+    }
+
+    FILE *outputFileEH1 = fopen("better_runlist_EH1.txt", "a");
+    FILE *outputFileEH2 = fopen("better_runlist_EH2.txt", "a");
+    FILE *outputFileEH3 = fopen("better_runlist_EH3.txt", "a");
+
+    char line[512];
+    while (fgets(line, sizeof(line), inputFile)) {
+        int runNumber;
+        char hall[4];
+
+        if (sscanf(line, "%*[^.].Neutrino.%d.Physics.%3s", &runNumber, hall) == 2) {
+            int hallNumber = atoi(hall + 2);
+            if (hallNumber >= 1 && hallNumber <= 3) {
+                FILE *outputFile = nullptr;
+                if (hallNumber == 1) {
+                    outputFile = outputFileEH1;
+                } else if (hallNumber == 2) {
+                    outputFile = outputFileEH2;
+                } else if (hallNumber == 3) {
+                    outputFile = outputFileEH3;
+                }
+
+                if (outputFile) {
+                    fprintf(outputFile, "%d %d\n", runNumber, hallNumber);
+                }
+            }
+        }
+    }
+
+    fclose(inputFile);
+    fclose(outputFileEH1);
+    fclose(outputFileEH2);
+    fclose(outputFileEH3);
+}
